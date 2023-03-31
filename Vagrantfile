@@ -3,8 +3,7 @@ Vagrant.configure("2") do |config|
   config.vm.provider 'docker' do |docker, override|
     override.vm.box = nil
     docker.build_dir = "."
-    #docker.image = "rofrano/vagrant:ubuntu"
-    docker.name = "vagrant-docker"
+    docker.name = 'vagdock'
     override.ssh.insert_key = true
     docker.remains_running = true
     docker.has_ssh = true
