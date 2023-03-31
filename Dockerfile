@@ -1,32 +1,44 @@
-FROM python:3.11.1-slim-buster
-RUN apt-get update && apt-get install -y zsh
-SHELL ["/bin/zsh", "-c", "-o", "pipefail"]
-RUN python -m pip install --upgrade pip
+# Docker image to use with Vagrant
+# Aims to be as similar to normal Vagrant usage as possible
+# Adds Puppet, SSH daemon, Systemd
+# Adapted from https://github.com/BashtonLtd/docker-vagrant-images/blob/master/ubuntu1404/Dockerfile
 
-RUN python -m venv /opt/prod \
-    && /opt/prod/bin/python -m pip install --upgrade pip \
-    && chmod +x /opt/prod/bin/activate
+FROM python:3.11.2-slim-bullseye
+ENV container docker
+RUN apt-get update -y && apt-get dist-upgrade -y
+RUN apt-get install -y --no-install-recommends ssh sudo libffi-dev systemd openssh-client
 
-RUN if ! getent passwd app; then groupadd -g 1000 app && useradd -u 1000 -g 1000 -d /home/app -m -s /bin/zsh app; fi \
-    && echo app:app | chpasswd \
-    && echo 'app ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers \
-    && mkdir -p /etc/sudoers.d \
-    && echo 'app ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers.d/app \
-    && chmod 0440 /etc/sudoers.d/app \
-	  && apt-get autoremove \
-    && apt-get clean -y \
-    && rm -rf /var/lib/apt/lists/* \
-    && chown -R app /opt/prod
+RUN useradd --create-home -s /bin/bash vagrant
+RUN echo -n 'vagrant:vagrant' | chpasswd
+RUN echo 'vagrant ALL = NOPASSWD: ALL' > /etc/sudoers.d/vagrant
+RUN chmod 440 /etc/sudoers.d/vagrant
+RUN mkdir -p /home/vagrant/.ssh
+RUN chmod 700 /home/vagrant/.ssh
+RUN echo "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkTkyrtvp9eWW6A8YVr+kz4TjGYe7gHzIw+niNltGEFHzD8+v1I2YJ6oXevct1YeS0o9HZyN1Q9qgCgzUFtdOKLv6IedplqoPkcmF0aYet2PkEDo3MlTBckFXPITAMzF8dJSIFo9D8HfdOV0IAdx4O7PtixWKn5y2hMNG0zQPyUecp4pzC6kivAIhyfHilFR61RGL+GPXQ2MWZWFYbAGjyiYJnAmCP3NOTd0jMZEnDkbUvxhMmBYSdETk1rRgm+R4LOzFUGaHqHDLKLX+FIPKcF96hrucXzcWyLbIbEgE98OHlnVYCzRdK8jlqm8tehUc9c9WhQ==" > /home/vagrant/.ssh/authorized_keys
+RUN chmod 600 /home/vagrant/.ssh/authorized_keys
+RUN chown -R vagrant:vagrant /home/vagrant/.ssh
+RUN sed -i -e 's/Defaults.*requiretty/#&/' /etc/sudoers
+RUN sed -i -e 's/\(UsePAM \)yes/\1 no/' /etc/ssh/sshd_config
 
-USER app
-WORKDIR /home/app
-RUN touch /home/app/.zshrc \
-    && echo 'export PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' >> /home/app/.zshrc \
-    && echo 'PS1="$ "' >> /home/app/.zshrc \
-    && echo 'alias prod="deactivate 2> /dev/null ; . /opt/prod/bin/activate"' >> /home/app/.zshrc  \
-    && mkdir -p /home/app/app \
-    && mkdir -p /home/app/app/tests \
-    && mkdir -p /home/app/app/docs \
-    && mkdir -p /home/app/data
+RUN mkdir /var/run/sshd
+EXPOSE 22
+RUN /usr/sbin/sshd
 
-CMD python
+RUN mkdir -p /home/vagrant/app \
+  && mkdir -p /home/vagrant/app/docs \
+  && mkdir -p /home/vagrant/data
+
+ENV PATH="/home/vagrant/local/bin:${PATH}"
+ENV COLORTERM=truecolor
+ENV PYTHONDONTWRITEBYTECODE=1
+EXPOSE 22
+
+#WORKDIR /home/vagrant/app
+RUN python -m pip install --user --upgrade pip
+COPY --chown=vagrant requirements.txt .
+COPY --chown=vagrant requirements.dev.txt .
+RUN python -m pip install --user -r requirements.txt
+COPY --chown=vagrant tests/ app/tests/
+COPY --chown=vagrant src/ app/src/
+#WORKDIR /vagrant
+CMD ["/lib/systemd/systemd"]
