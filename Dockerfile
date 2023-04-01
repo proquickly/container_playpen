@@ -1,7 +1,7 @@
 FROM python:3.11.2-slim-bullseye
 ENV container docker
-RUN apt-get update -y && apt-get dist-upgrade -y
-RUN apt-get install -y --no-install-recommends ssh sudo libffi-dev systemd openssh-client
+RUN apt-get update -y \
+  && apt-get install -y --no-install-recommends ssh sudo libffi-dev systemd openssh-client
 
 RUN useradd --create-home -s /bin/bash vagrant \
   && echo -n 'vagrant:vagrant' | chpasswd \
@@ -26,7 +26,6 @@ RUN mkdir -p /home/vagrant/app \
 ENV PATH="/home/vagrant/local/bin:${PATH}"
 ENV COLORTERM=truecolor
 ENV PYTHONDONTWRITEBYTECODE=1
-EXPOSE 22
 
 RUN python -m pip install --user --upgrade pip
 COPY --chown=vagrant requirements.txt /home/vagrant/app/
