@@ -1,9 +1,8 @@
 FROM python:3.11.2-slim-bullseye
 ENV container docker
 RUN apt-get update -y \
-  && apt-get install -y --no-install-recommends ssh sudo libffi-dev systemd openssh-client
-
-RUN useradd --create-home -s /bin/bash vagrant \
+  && apt-get install -y --no-install-recommends ssh sudo libffi-dev systemd openssh-client \
+  && useradd --create-home -s /bin/bash vagrant \
   && echo -n 'vagrant:vagrant' | chpasswd \
   && echo 'vagrant ALL = NOPASSWD: ALL' > /etc/sudoers.d/vagrant \
   && chmod 440 /etc/sudoers.d/vagrant \
@@ -13,13 +12,11 @@ RUN useradd --create-home -s /bin/bash vagrant \
   && chmod 600 /home/vagrant/.ssh/authorized_keys \
   && chown -R vagrant:vagrant /home/vagrant/.ssh \
   && sed -i -e 's/Defaults.*requiretty/#&/' /etc/sudoers \
-  && sed -i -e 's/\(UsePAM \)yes/\1 no/' /etc/ssh/sshd_config
-
-RUN mkdir /var/run/sshd
+  && sed -i -e 's/\(UsePAM \)yes/\1 no/' /etc/ssh/sshd_config \
+  && mkdir /var/run/sshd
 EXPOSE 22
-RUN /usr/sbin/sshd
-
-RUN mkdir -p /home/vagrant/app \
+RUN /usr/sbin/sshd \
+  && mkdir -p /home/vagrant/app \
   && mkdir -p /home/vagrant/app/docs \
   && mkdir -p /home/vagrant/data
 
@@ -27,10 +24,10 @@ ENV PATH="/home/vagrant/local/bin:${PATH}"
 ENV COLORTERM=truecolor
 ENV PYTHONDONTWRITEBYTECODE=1
 
-RUN python -m pip install --user --upgrade pip
 COPY --chown=vagrant requirements.txt /home/vagrant/app/
 COPY --chown=vagrant requirements.dev.txt /home/vagrant/app/
-RUN python -m pip install --user -r /home/vagrant/app/requirements.dev.txt \
+RUN python -m pip install --user --upgrade pip \
+  && python -m pip install --user -r /home/vagrant/app/requirements.dev.txt \
   && python -m pip install --user -r /home/vagrant/app/requirements.txt
 COPY --chown=vagrant tests/ app/tests/
 COPY --chown=vagrant src/ app/src/

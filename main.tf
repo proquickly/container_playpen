@@ -24,4 +24,3 @@ resource "docker_container" "nginx" {
   }
 }
 # eo main.tf
-
